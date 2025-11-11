@@ -421,7 +421,7 @@ ng build --configuration production
 
 |                                                                                                                                                                                                                               |
 | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  **Flujo de despliegue está documentado**, el frontend se buildéa con un script y el backend se empaqueta en Docker, se sube a ECR y se actualiza la Task Definition y el Service de ECS Fargate.                       |
+|  **Flujo de despliegue documentado**, el frontend se buildéa con un script y el backend se empaqueta en Docker, se sube a ECR y se actualiza la Task Definition y el Service de ECS Fargate.                       |
 | **Separación de entornos**, todo se trabajó para un entorno `dev` y los recursos siguen el prefijo `tropicales-shop-dev-*`. En una siguiente fase se podría replicar la misma arquitectura para `qa` y `prod`.        |
 | **Se monitorean métricas clave**, se creo un dashboard en CloudWatch con CPU de ECS, errores 5xx del ALB y la métrica `FreeStorageSpace` de RDS.                                                                           |
 
@@ -481,7 +481,7 @@ ng build --configuration production
 
 ---
 
-### 9.6 Sustainability (Sostenibilidad, opcional)
+### 9.6 Sustainability (Sostenibilidad)
 
 |                                                                                                                                                                                                                       |
 | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

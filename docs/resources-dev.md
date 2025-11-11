@@ -261,7 +261,7 @@ Este documento lista los recursos principales creados en AWS para el entorno **d
   - Restringir el acceso directo desde Internet a la base de datos.
   - Permitir que la base de datos pueda iniciar conexiones salientes hacia Internet si es necesario (por ejemplo, para parches o conexiones externas).
 
-- `tropicales-shop-dev-sgr-ecs-app` 
+- `tropicales-shop-dev-sgr-ecs-app`
 
   - **Descripción:** Security group para tareas **ECS Fargate** de la capa de aplicación (backend) de `tropicales-shop-dev`.
   - **Inbound**
