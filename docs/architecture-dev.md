@@ -25,8 +25,12 @@ El objetivo principal del reto es demostrar:
 
 #### Capa de presentación
 
-- Flujo principal: **Usuario → Internet → CloudFront → S3 (frontend Angular)**.
-- El frontend es una SPA que consume la API vía: `http://tropicales-shop-dev-alb-2003296475.us-east-2.elb.amazonaws.com/api/...`
+- Flujo principal:
+  - Usuario → Internet → CloudFront → S3 (frontend Angular).
+  - El frontend Angular, ya desplegado en S3, consume la API usando el mismo dominio de CloudFront:
+    `https://d25ywqiyuq14r9.cloudfront.net/api/...`
+  - CloudFront tiene un behavior `/api/*` que enruta esas peticiones hacia el ALB
+    `tropicales-shop-dev-alb-2003296475.us-east-2.elb.amazonaws.com`.
 
 #### Capa de aplicación
 
@@ -311,11 +315,40 @@ DB_NAME=tienda
 
 ### 6.2 CloudFront
 
-- **Distribución**: `tropicales-shop-dev-cf-frontend`.
-- **Origin**: bucket S3 frontend.
-- **Comportamiento por defecto**:
-  - Sirve la SPA Angular.
-  - HTTPS habilitado (certificado de Amazon por defecto).
+- **Distribución**
+
+  - Nombre lógico: `tropicales-shop-dev-cf-frontend`.
+  - Domain: `https://d25ywqiyuq14r9.cloudfront.net`.
+  - Función principal: punto de entrada único para el **frontend Angular y la API**.
+
+- **Origins configurados**
+
+  1. **Origin S3 – Frontend**
+     - `tropicales-shop-dev-s3-frontend.s3.us-east-2.amazonaws.com`
+     - Uso: servir la SPA Angular (HTML, JS, CSS, assets).
+  2. **Origin ALB – Backend**
+     - `tropicales-shop-dev-alb-2003296475.us-east-2.elb.amazonaws.com`
+     - Uso: recibir el tráfico `/api/*` desde CloudFront y distribuirlo a las tareas ECS Fargate.
+
+- **Behaviors (comportamientos)**
+
+  - **Default behavior**
+
+    - Path pattern: `*`
+    - Origin: S3 (`tropicales-shop-dev-s3-frontend`)
+    - Sirve la aplicación Angular.
+
+  - **Behavior API**
+    - Path pattern: `/api/*`
+    - Origin: ALB (`tropicales-shop-dev-alb-2003296475.us-east-2.elb.amazonaws.com`)
+    - Viewer protocol policy: **Redirect HTTP to HTTPS**
+    - Cache policy: `Managed-CachingDisabled` (no se cachea la API).
+    - Origin request policy: `Managed-AllViewer` (reenvía headers, query params, etc. necesarios a la API).
+
+- **Política de protocolo**
+  - El usuario siempre entra por **HTTPS** a CloudFront.
+  - CloudFront termina TLS y se comunica con S3/ALB internamente por HTTP.
+  - De esta forma, todo el tráfico entre cliente y punto de entrada está cifrado.
 - **Flujo de deploy frontend (CLI)**:
 
 ```bash
@@ -381,3 +414,77 @@ ng build --configuration production
     - Condición: $\ge$ **1** en una ventana de 5 minutos.
     - Acción: notificación al topic SNS.
 - **Uso**: Detectar errores de infraestructura y aplicación, y dar visibilidad temprana sobre problemas en backend o RDS.
+
+## 9. Anexo –  AWS Well-Architected aplicado a tropicales-shop
+
+### 9.1 Operational Excellence (Excelencia Operacional)
+
+|                                                                                                                                                                                                                               |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|  **Flujo de despliegue está documentado**, el frontend se buildéa con un script y el backend se empaqueta en Docker, se sube a ECR y se actualiza la Task Definition y el Service de ECS Fargate.                       |
+| **Separación de entornos**, todo se trabajó para un entorno `dev` y los recursos siguen el prefijo `tropicales-shop-dev-*`. En una siguiente fase se podría replicar la misma arquitectura para `qa` y `prod`.        |
+| **Se monitorean métricas clave**, se creo un dashboard en CloudWatch con CPU de ECS, errores 5xx del ALB y la métrica `FreeStorageSpace` de RDS.                                                                           |
+
+| **Alarmas y notificaciones configuradas**, se monitorea CPU alta en ECS y errores 5xx en el ALB, y las alarmas notifican al topic SNS `tropicales-shop-dev-sns-alerts`, en la actualidad un suscriptor.                         |
+| **Guía básica de troubleshooting**, se documentó qué revisar ante errores 503 en el ALB, cómo validar health checks, cómo encender RDS/ECS y cómo usar el bastion con túnel SSH para revisar la base de datos. |
+
+---
+
+### 9.2 Security (Seguridad)
+
+|                                                                                                                                                                                                                                                                                                                        |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **El acceso a la consola está controlado con IAM Identity Center**, se tiene un grupo de administradores con `AdministratorAccess` y otro de desarrolladores con permisos más restringidos (read-only / AIOps). La cuenta root solo se usa para tareas excepcionales.                                                       |
+| **La cuenta root tiene MFA habilitado** y se evita su uso en el día a día.                                                                                                                                                                                                                                         |
+| **La base de datos RDS no es pública**, `tropicales-shop-dev-rds` está en subnets privadas, sin Public Access, y solo acepta conexiones desde el Security Group de la capa de aplicación.                                                                                                                          |
+| **Los Security Groups siguen el principio de mínimo privilegio**  |
+| **Se usan roles IAM en lugar de llaves estáticas** la EC2 utiliza el rol `tropicales-shop-dev-app-ec2-role` (acceso a ECR) y las tareas de Fargate usan `tropicales-shop-dev-ecs-task-exec-role` (ECR + CloudWatch Logs). No hay access keys incrustadas en el código ni en las instancias.                       |
+| **Los desarrolladores acceden a la base de datos solo a través de un bastion host**: se conecta por SSH a una EC2 bastion usando túnel (`-L 3307:...:3306`) y un usuario de base de datos limitado (`dev_user`) en MySQL. La RDS nunca se expone directamente a Internet.                                              |
+|**No hay WAF activo en este entorno dev** se llegó a crear una Web ACL para CloudFront, pero se eliminó para evitar costos fijos. En la documentación se deja WAF como mejora recomendada para producción.                                                                                                |
+
+---
+
+### 9.3 Reliability (Fiabilidad)
+
+|                                                                                                                                                                                                                                                          |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **La VPC está segmentada correctamente** `tropicales-shop-dev-vpc` tiene subnets públicas (para ALB y bastion EC2) y subnets privadas (para ECS Fargate y RDS).                                                                                     |
+| **La arquitectura está distribuida en múltiples AZ**: las subnets públicas y privadas se despliegan en al menos dos zonas de disponibilidad en `us-east-2`, lo que permite distribuir tanto las tareas ECS como el RDS subnet group.                 |
+| **Si falla una tarea ECS, el servicio se recupera automáticamente** ya que el Service ECS mantiene un `desiredCount` configurado y, si una tarea cae, ECS lanza otra. El ALB realiza health checks sobre `/health` y solo enruta tráfico a targets saludables. |
+| **RDS cuenta con backups automáticos**: la instancia MySQL tiene automated backups habilitados, con retención de 7 días y una ventana de backup definida.                                                                                            |
+| **Se manejan snapshots manuales** se creó al menos un snapshot manual de `tropicales-shop-dev-rds` como punto de recuperación antes de cambios importantes y como evidencia del reto.                                                       |
+
+---
+
+### 9.4 Performance Efficiency (Eficiencia de rendimiento)
+
+|                                                                                                                                                                                                                                              |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **El frontend está optimizado para entrega rápida** la aplicación Angular se sirve desde **S3 + CloudFront**, aprovechando caché en edge locations y HTTPS gestionado por CloudFront.                                                   |
+| **La capa de aplicación usa servicios adecuados** el backend se ejecuta en **ECS Fargate**, lo que permite definir CPU y memoria por tarea sin gestionar servidores manualmente.                                                        |
+| **RDS está dimensionada correctamente para un entorno de desarrollo**: se utiliza una clase pequeña (`db.t4g.micro`) con 20 GiB de almacenamiento, suficiente para el volumen de datos del reto sin sobredimensionar la infraestructura. |
+| **Se monitorea el rendimiento del backend** se observa la métrica `ECSServiceAverageCPUUtilization` del servicio backend, además de errores 5xx del ALB y métricas de RDS.                                                              |
+| **Capacidad de escalar**: el servicio ECS tiene **Service Auto Scaling** con target tracking a ~70 % de CPU, permitiendo escalar horizontalmente de 1 a 2 tareas.                                       |
+| **Se aprovechan servicios gestionados para mejorar eficiencia** se usa RDS en lugar de MySQL en EC2, ECS Fargate en lugar de contenedores sobre instancias propias, y CloudFront/S3 en lugar de servir estáticos desde un servidor web. |
+
+---
+
+### 9.5 Cost Optimization (Optimización de costos)
+
+|                                                                                                                                                                                                                                                                                                        |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Se apagan recursos cuando no se usan** en dev, RDS se puede dejar `stopped`, la EC2 bastion se apaga cuando no se necesita SSH y el servicio ECS se configura con `desiredCount = 0` para no pagar por tareas Fargate.                                                                  |
+| **Las instancias están dimensionadas de forma pequeña y adecuada** se usan tipos como `t3.micro` / `t4g.micro` para EC2 y RDS, y tareas Fargate de `0.5 vCPU / 1 GiB`.                                                                                         |
+| **Claridad sobre qué servicios generan más costo** los principales son RDS, el Application Load Balancer y ECS Fargate cuando las tareas están corriendo; S3, CloudFront y SNS tienen un costo mucho más bajo en este escenario. WAF se eliminó para evitar un costo fijo innecesario en dev. |
+| **Se evita tener recursos duplicados** tras migrar el backend a Fargate, el Auto Scaling Group `tropicales-shop-dev-app-asg` se dejó con `desired = 0` para no lanzar nuevas instancias EC2, y la EC2 que antes fungía como backend ahora solo actúa como bastion host.                           |
+| **Se reutilizan recursos cuando tiene sentido** en dev se usa el mismo bucket S3 tanto para el frontend como para las imágenes de productos, evitando crear un bucket adicional solo para imágenes.                                                                                  |
+
+---
+
+### 9.6 Sustainability (Sostenibilidad, opcional)
+
+|                                                                                                                                                                                                                       |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Se evita mantener recursos encendidos sin necesidad**: se apagan RDS, la EC2 bastion y las tareas Fargate cuando no se están realizando pruebas ni demostraciones.                                              |
+| **Se usan servicios gestionados que mejoran la eficiencia energética**: ECS Fargate y RDS permiten que AWS optimice el uso del hardware subyacente, en lugar de tener VMs propias infrautilizadas.                |
+| **Se evita el sobreaprovisionamiento** todos los tamaños de instancias y tareas están elegidos para un entorno de desarrollo y no para una carga de producción pesada. |
