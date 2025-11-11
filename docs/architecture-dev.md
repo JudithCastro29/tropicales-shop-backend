@@ -236,6 +236,8 @@ Valores de capacidad (modo demo / ahorro):
 
 El esquema `tienda` modela una tienda en línea sencilla que permite gestionar productos, clientes y órdenes de compra.
 
+![Diagrama base de datos](../docs/diagrams/db-diagram-tienda.png)
+
 - **Tabla `products`**  
   Contiene el catálogo de productos disponibles en la tienda.
 
@@ -321,7 +323,7 @@ ng build --configuration production
 ./deploy-tropicales.sh
 ```
 
-## 7. Seguridad: IAM y acceso 🔐
+## 7. Seguridad: IAM y acceso
 
 ### 7.1 IAM Roles principales
 
