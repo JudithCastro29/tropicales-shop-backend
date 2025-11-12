@@ -4,7 +4,7 @@ Este documento lista los recursos principales creados en AWS para el entorno **d
 
 ---
 
-## 1. Red (Networking)
+## 1. Red (Networking)ecs
 
 ### 1.1 VPC
 

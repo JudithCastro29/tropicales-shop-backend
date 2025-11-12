@@ -66,9 +66,9 @@ El objetivo principal del reto es demostrar:
 
 - **VPC**: `tropicales-shop-dev-vpc`.
 - **Subredes públicas**:
-  - Alojan el **ALB** y la **EC2 bastion**.
+  - Alojan el **ALB** **ECS Fargate** (backend) y la **EC2 bastion**.
 - **Subredes privadas**:
-  - Alojan **ECS Fargate** (backend).
+  
   - Alojan **RDS MySQL** (base de datos).
 - **Internet Gateway**:
   - Asociado a la VPC para tráfico de Internet desde/hacia subnets públicas.
