@@ -52,19 +52,18 @@ steps:
       AWS_SECRET_ACCESS_KEY: $(AWS_SECRET_ACCESS_KEY)
       AWS_DEFAULT_REGION: $(AWS_REGION)
 
-  # --- Fase 3: Actualizar servicio ECS con la nueva imagen ---
-  - task: AmazonWebServices.aws-vsts-tools.ecs-deploy-task.ECSDeployTask@1
-    displayName: 'Deploy to AWS ECS'
-    inputs:
-      awsCredentials: 'aws-tropicales-dev'   # nombre de la Service Connection AWS
-      regionName: $(AWS_REGION)
-      cluster: $(ECS_CLUSTER_NAME)
-      service: $(ECS_SERVICE_NAME)
-      imageSource: 'imageName'
-      imageName: |
-        [
-          {
-            "name": "$(ECS_CONTAINER_NAME)",
-            "imageUri": "$(FULL_IMAGE_URL)"
-          }
-        ]
+  # --- Fase 3: Forzar nuevo deployment en ECS usando la misma imagen :dev ---
+  - script: |
+      echo "Updating ECS service to force new deployment..."
+      aws ecs update-service \
+        --cluster $(ECS_CLUSTER_NAME) \
+        --service $(ECS_SERVICE_NAME) \
+        --force-new-deployment \
+        --region $(AWS_REGION)
+
+      echo "ECS service update triggered."
+    displayName: 'Force new ECS deployment'
+    env:
+      AWS_ACCESS_KEY_ID: $(AWS_ACCESS_KEY_ID)
+      AWS_SECRET_ACCESS_KEY: $(AWS_SECRET_ACCESS_KEY)
+      AWS_DEFAULT_REGION: $(AWS_REGION)
