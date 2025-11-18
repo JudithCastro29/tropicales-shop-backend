@@ -1,7 +1,3 @@
-// index.js
-// Backend tropicales-shop
-// Node.js + Express + MySQL (mysql2/promise)
-
 const express = require('express');
 const cors = require('cors');
 const mysql = require('mysql2/promise');
@@ -27,8 +23,6 @@ const validEmail = (e) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test((e || '').trim());
 const fmtCOP = (n) =>
   new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP' }).format(n);
 
-// Recalcula precios desde la BD usando los IDs del carrito.
-// No confíes en precios que vengan del front.
 async function priceCartItems(cart) {
   const ids = cart.map((i) => i.productId);
   if (!ids.length) return { items: [], subtotal: 0 };
