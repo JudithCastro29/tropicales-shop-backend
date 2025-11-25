@@ -7,36 +7,37 @@ pool:
   vmImage: 'ubuntu-latest'
 
 variables:
-  # === Variables de AWS y ECR ===
   AWS_REGION: 'us-east-2'
   AWS_ACCOUNT_ID: '341098451732'
   ECR_REPOSITORY: 'tropicales-shop-dev-ecr-api-app'
   IMAGE_TAG: 'latest'
   
-  # === Variables de ECS (deben coincidir con Terraform) ===
   ECS_CLUSTER_NAME: 'tropicales-shop-dev-ecs-cluster-api'
   ECS_SERVICE_NAME: 'tropicales-shop-dev-ecs-service-api'
-  ECS_CONTAINER_NAME: 'tropicales-shop-dev-task-api'   # nombre del contenedor en la task definition
+  ECS_CONTAINER_NAME: 'tropicales-shop-dev-task-api'
 
 steps:
   - checkout: self
 
-  # --- Fase 1: Verificar AWS CLI / Docker ---
+  # Comprobar AWS & Docker
   - script: |
       echo "AWS version:"
-      aws --version
+      aws --version || echo "aws cli not found"
       echo "Docker version:"
-      docker --version
+      docker --version || echo "docker not found"
+
+      echo "Who am I in AWS?"
+      aws sts get-caller-identity || echo "STS call failed"
     displayName: 'Check AWS & Docker'
 
-  # --- Fase 2: Build y push a ECR ---
+  # Build & Push
   - script: |
       echo "Login to ECR..."
       aws ecr get-login-password --region $(AWS_REGION) \
         | docker login --username AWS --password-stdin $(AWS_ACCOUNT_ID).dkr.ecr.$(AWS_REGION).amazonaws.com
 
       echo "Build Docker image..."
-      # Si el backend está en carpeta ./backend, cambia el último punto por ./backend
+      # Cambia "." si tu backend no está en la raíz
       docker build -t $(ECR_REPOSITORY):$(IMAGE_TAG) .
 
       echo "Tag and push to ECR..."
@@ -48,11 +49,11 @@ steps:
       echo "Image pushed: $DOCKER_IMAGE_URL"
     displayName: 'Build & Push Docker image to ECR'
     env:
-      AWS_ACCESS_KEY_ID: $(AWS_ACCESS_KEY_ID)
-      AWS_SECRET_ACCESS_KEY: $(AWS_SECRET_ACCESS_KEY)
+      AWS_ACCESS_KEY_ID: $(AWS_ACCESS_KEY_ID)          # definir como secret en el pipeline
+      AWS_SECRET_ACCESS_KEY: $(AWS_SECRET_ACCESS_KEY)  # idem
       AWS_DEFAULT_REGION: $(AWS_REGION)
 
-  # --- Fase 3: Forzar nuevo deployment en ECS usando la misma imagen :dev ---
+  # Forzar nuevo deployment en ECS
   - script: |
       echo "Updating ECS service to force new deployment..."
       aws ecs update-service \
