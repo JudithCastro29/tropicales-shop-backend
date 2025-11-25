@@ -10,7 +10,7 @@ variables:
   # === Variables de AWS y ECR ===
   AWS_REGION: 'us-east-2'
   AWS_ACCOUNT_ID: '341098451732'
-  ECR_REPOSITORY: 'tropicales-shop-dev-ecr-backend'
+  ECR_REPOSITORY: 'tropicales-shop-dev-ecr-api-app'
   IMAGE_TAG: 'latest'
   
   # === Variables de ECS (deben coincidir con Terraform) ===
