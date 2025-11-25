@@ -11,12 +11,12 @@ variables:
   AWS_REGION: 'us-east-2'
   AWS_ACCOUNT_ID: '341098451732'
   ECR_REPOSITORY: 'tropicales-shop-dev-ecr-backend'
-  IMAGE_TAG: 'dev'
+  IMAGE_TAG: 'latest'
   
   # === Variables de ECS (deben coincidir con Terraform) ===
-  ECS_CLUSTER_NAME: 'tropicales-shop-dev-ecs-cluster'
-  ECS_SERVICE_NAME: 'tropicales-shop-dev-ecs-service-backend'
-  ECS_CONTAINER_NAME: 'backend'   # nombre del contenedor en la task definition
+  ECS_CLUSTER_NAME: 'tropicales-shop-dev-ecs-cluster-api'
+  ECS_SERVICE_NAME: 'tropicales-shop-dev-ecs-service-api'
+  ECS_CONTAINER_NAME: 'tropicales-shop-dev-task-api'   # nombre del contenedor en la task definition
 
 steps:
   - checkout: self
