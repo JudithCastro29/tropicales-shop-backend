@@ -7,14 +7,14 @@ pool:
   vmImage: 'ubuntu-latest'
 
 variables:
-  AWS_REGION: 'us-east-2'
+  AWS_REGION: 'us-east-1'
   AWS_ACCOUNT_ID: '341098451732'
-  ECR_REPOSITORY: 'tropicales-shop-dev-ecr-api-app'
-  IMAGE_TAG: 'latest'
+  ECR_REPOSITORY: 'jfc-ecommerce-dev-ecr-ecommerce-api'
+  IMAGE_TAG: '$(Build.BuildId)'
   
-  ECS_CLUSTER_NAME: 'tropicales-shop-dev-cluster-api'
-  ECS_SERVICE_NAME: 'tropicales-shop-dev-ecs-service-api'
-  ECS_CONTAINER_NAME: 'tropicales-shop-dev-task-api'
+  ECS_CLUSTER_NAME: 'jfc-ecommerce-dev-cluster-api'
+  ECS_SERVICE_NAME: 'jfc-ecommerce-dev-ecs-service-api-core'
+  ECS_CONTAINER_NAME: 'app'
 
 steps:
   - checkout: self
