@@ -10,7 +10,7 @@ variables:
   AWS_REGION: 'us-east-1'
   AWS_ACCOUNT_ID: '341098451732'
   ECR_REPOSITORY: 'jfc-ecommerce-dev-ecr-ecommerce-api'
-  IMAGE_TAG: '$(Build.BuildId)'
+  IMAGE_TAG: 'latest'
   
   ECS_CLUSTER_NAME: 'jfc-ecommerce-dev-cluster-api'
   ECS_SERVICE_NAME: 'jfc-ecommerce-dev-ecs-service-api-core'
