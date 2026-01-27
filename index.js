@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const mysql = require('mysql2/promise');
+const { initDatabase } = require('./db/init');
 require('dotenv').config();
 
 const app = express();
@@ -183,6 +184,18 @@ app.post('/api/orders', async (req, res) => {
 
 // ---------- SERVER ----------
 const port = Number(process.env.PORT || 8080);
-app.listen(port, () =>
-  console.log(`API lista en puerto ${port}`)
-);
+
+// Initialize database before starting server
+(async () => {
+  try {
+    if (process.env.INIT_DB === 'true') {
+      await initDatabase();
+    }
+  } catch (err) {
+    console.error('DB init error (continuing anyway):', err.message);
+  }
+  
+  app.listen(port, () =>
+    console.log(`API lista en puerto ${port}`)
+  );
+})();
