@@ -183,4 +183,6 @@ app.post('/api/orders', async (req, res) => {
 
 // ---------- SERVER ----------
 const port = Number(process.env.PORT || 8080);
-app.listen(port, () => console.log(`API lista en http://localhost:${port}`));
+app.listen(port, () =>
+  console.log(`API lista en puerto ${port}`)
+);
