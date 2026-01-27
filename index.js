@@ -1,12 +1,18 @@
 const express = require('express');
 const cors = require('cors');
 const mysql = require('mysql2/promise');
+const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
+const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
 const { initDatabase } = require('./db/init');
 require('dotenv').config();
 
 const app = express();
 app.use(cors());
 app.use(express.json());
+
+// ---------- S3 CLIENT ----------
+const s3Client = new S3Client({ region: process.env.AWS_REGION || 'us-east-1' });
+const ASSETS_BUCKET = process.env.ASSETS_BUCKET || 'jfc-ecommerce-dev-s3-assets';
 
 // ---------- DB POOL ---------
 const pool = mysql.createPool({
@@ -94,6 +100,39 @@ app.delete('/api/products/:id', async (req, res) => {
   const [r] = await pool.query('DELETE FROM products WHERE id=?', [id]);
   if (!r.affectedRows) return res.status(404).json({ ok: false, error: 'No encontrado' });
   res.status(204).send();
+});
+
+// ---------- UPLOAD (Presigned URL) ----------
+app.post('/api/upload/presigned-url', async (req, res) => {
+  try {
+    const { filename, contentType } = req.body || {};
+    if (!filename || !contentType) {
+      return res.status(400).json({ ok: false, error: 'filename y contentType requeridos' });
+    }
+    
+    // Generar key único para el archivo
+    const timestamp = Date.now();
+    const cleanName = filename.replace(/[^a-zA-Z0-9.-]/g, '_');
+    const key = `products/${timestamp}-${cleanName}`;
+    
+    const command = new PutObjectCommand({
+      Bucket: ASSETS_BUCKET,
+      Key: key,
+      ContentType: contentType,
+    });
+    
+    const uploadUrl = await getSignedUrl(s3Client, command, { expiresIn: 300 }); // 5 min
+    
+    res.json({ 
+      ok: true, 
+      uploadUrl, 
+      key,
+      publicUrl: `https://${ASSETS_BUCKET}.s3.amazonaws.com/${key}`
+    });
+  } catch (err) {
+    console.error('Error generating presigned URL:', err);
+    res.status(500).json({ ok: false, error: err.message });
+  }
 });
 
 // ---------- ORDERS (ÚNICO HANDLER) ----------
