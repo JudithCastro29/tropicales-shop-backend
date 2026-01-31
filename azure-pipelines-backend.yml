@@ -11,6 +11,7 @@ variables:
   AWS_ACCOUNT_ID: '840021737375'
   ECR_REPOSITORY: 'jfc-ecommerce-dev-ecr-ecommerce-api'
   IMAGE_TAG: 'latest'
+  AWS_SERVICE_CONNECTION: 'AWS-OIDC-Infra-Conn'
   
   ECS_CLUSTER_NAME: 'jfc-ecommerce-dev-cluster-api'
   ECS_SERVICE_NAME: 'jfc-ecommerce-dev-ecs-service-api-core'
@@ -31,53 +32,42 @@ steps:
     displayName: 'Check AWS & Docker'
 
   # Build & Push
-  - script: |
-      echo "Login to ECR..."
-      aws ecr get-login-password --region $(AWS_REGION) \
-        | docker login --username AWS --password-stdin $(AWS_ACCOUNT_ID).dkr.ecr.$(AWS_REGION).amazonaws.com
-
-      echo "Build Docker image..."
-      # Cambia "." si tu backend no está en la raíz
-      docker build -t $(ECR_REPOSITORY):$(IMAGE_TAG) .
-
-      echo "Tag and push to ECR..."
-      DOCKER_IMAGE_URL=$(AWS_ACCOUNT_ID).dkr.ecr.$(AWS_REGION).amazonaws.com/$(ECR_REPOSITORY):$(IMAGE_TAG)
-      docker tag $(ECR_REPOSITORY):$(IMAGE_TAG) $DOCKER_IMAGE_URL
-      docker push $DOCKER_IMAGE_URL
-
-      echo "##vso[task.setvariable variable=FULL_IMAGE_URL]$DOCKER_IMAGE_URL"
-      echo "Image pushed: $DOCKER_IMAGE_URL"
+  - task: AWSShellScript@1
     displayName: 'Build & Push Docker image to ECR'
-    env:
-      AWS_ACCESS_KEY_ID: $(AWS_ACCESS_KEY_ID)          # definir como secret en el pipeline
-      AWS_SECRET_ACCESS_KEY: $(AWS_SECRET_ACCESS_KEY)  # idem
-      AWS_DEFAULT_REGION: $(AWS_REGION)
+    inputs:
+      awsCredentials: $(AWS_SERVICE_CONNECTION)
+      regionName: $(AWS_REGION)
+      scriptType: 'inline'
+      inlineScript: |
+        echo "Login to ECR..."
+        aws ecr get-login-password --region $(AWS_REGION) \
+          | docker login --username AWS --password-stdin $(AWS_ACCOUNT_ID).dkr.ecr.$(AWS_REGION).amazonaws.com
 
+        echo "Build Docker image..."
+        docker build -t $(ECR_REPOSITORY):$(IMAGE_TAG) .
 
-  # Terraform apply usando la imagen recién pusheada
-  - script: |
-      echo "Aplicando Terraform con api_image dinámico..."
-      cd ../../infraestructure/workload_jfc/environments/dev
-      terraform init
-      terraform apply -auto-approve -var="api_image=$(FULL_IMAGE_URL)"
-    displayName: 'Terraform apply con api_image dinámico'
-    env:
-      AWS_ACCESS_KEY_ID: $(AWS_ACCESS_KEY_ID)
-      AWS_SECRET_ACCESS_KEY: $(AWS_SECRET_ACCESS_KEY)
-      AWS_DEFAULT_REGION: $(AWS_REGION)
+        echo "Tag and push to ECR..."
+        DOCKER_IMAGE_URL=$(AWS_ACCOUNT_ID).dkr.ecr.$(AWS_REGION).amazonaws.com/$(ECR_REPOSITORY):$(IMAGE_TAG)
+        docker tag $(ECR_REPOSITORY):$(IMAGE_TAG) $DOCKER_IMAGE_URL
+        docker push $DOCKER_IMAGE_URL
+
+        echo "##vso[task.setvariable variable=FULL_IMAGE_URL]$DOCKER_IMAGE_URL"
+        echo "Image pushed: $DOCKER_IMAGE_URL"
+
 
   # Forzar nuevo deployment en ECS
-  - script: |
-      echo "Updating ECS service to force new deployment..."
-      aws ecs update-service \
-        --cluster $(ECS_CLUSTER_NAME) \
-        --service $(ECS_SERVICE_NAME) \
-        --force-new-deployment \
-        --region $(AWS_REGION)
-
-      echo "ECS service update triggered."
+  - task: AWSShellScript@1
     displayName: 'Force new ECS deployment'
-    env:
-      AWS_ACCESS_KEY_ID: $(AWS_ACCESS_KEY_ID)
-      AWS_SECRET_ACCESS_KEY: $(AWS_SECRET_ACCESS_KEY)
-      AWS_DEFAULT_REGION: $(AWS_REGION)
+    inputs:
+      awsCredentials: $(AWS_SERVICE_CONNECTION)
+      regionName: $(AWS_REGION)
+      scriptType: 'inline'
+      inlineScript: |
+        echo "Updating ECS service to force new deployment..."
+        aws ecs update-service \
+          --cluster $(ECS_CLUSTER_NAME) \
+          --service $(ECS_SERVICE_NAME) \
+          --force-new-deployment \
+          --region $(AWS_REGION)
+
+        echo "ECS service update triggered."
