@@ -8,7 +8,7 @@ pool:
 
 variables:
   AWS_REGION: 'us-east-1'
-  AWS_ACCOUNT_ID: '341098451732'
+  AWS_ACCOUNT_ID: '840021737375'
   ECR_REPOSITORY: 'jfc-ecommerce-dev-ecr-ecommerce-api'
   IMAGE_TAG: 'latest'
   
@@ -51,6 +51,19 @@ steps:
     env:
       AWS_ACCESS_KEY_ID: $(AWS_ACCESS_KEY_ID)          # definir como secret en el pipeline
       AWS_SECRET_ACCESS_KEY: $(AWS_SECRET_ACCESS_KEY)  # idem
+      AWS_DEFAULT_REGION: $(AWS_REGION)
+
+
+  # Terraform apply usando la imagen recién pusheada
+  - script: |
+      echo "Aplicando Terraform con api_image dinámico..."
+      cd ../../infraestructure/workload_jfc/environments/dev
+      terraform init
+      terraform apply -auto-approve -var="api_image=$(FULL_IMAGE_URL)"
+    displayName: 'Terraform apply con api_image dinámico'
+    env:
+      AWS_ACCESS_KEY_ID: $(AWS_ACCESS_KEY_ID)
+      AWS_SECRET_ACCESS_KEY: $(AWS_SECRET_ACCESS_KEY)
       AWS_DEFAULT_REGION: $(AWS_REGION)
 
   # Forzar nuevo deployment en ECS

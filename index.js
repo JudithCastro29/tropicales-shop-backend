@@ -12,7 +12,7 @@ app.use(express.json());
 
 // ---------- S3 CLIENT ----------
 const s3Client = new S3Client({ region: process.env.AWS_REGION || 'us-east-1' });
-const ASSETS_BUCKET = process.env.ASSETS_BUCKET || 'jfc-ecommerce-dev-s3-assets';
+const ASSETS_BUCKET = process.env.ASSETS_BUCKET || 'jfc-ecommerce-dev-s3-assets1';
 
 // ---------- DB POOL ---------
 const pool = mysql.createPool({
