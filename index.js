@@ -239,7 +239,7 @@ const port = Number(process.env.PORT || 8080);
     console.error('DB init error (continuing anyway):', err.message);
   }
   
-  app.listen(port, () =>
-    console.log(`API lista en puerto ${port}`)
+  app.listen(port, '0.0.0.0', () =>
+    console.log(`API lista en puerto ${port} (0.0.0.0)`)
   );
 })();
