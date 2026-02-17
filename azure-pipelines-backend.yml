@@ -12,7 +12,7 @@ variables:
   ECR_REPOSITORY: 'jfc-ecommerce-dev-ecr-ecommerce-api'
   IMAGE_TAG: 'latest'
   AWS_SERVICE_CONNECTION: 'AWS-OIDC-Infra-Conn'
-
+ 
   ECS_CLUSTER_NAME: 'jfc-ecommerce-dev-cluster-api'
   ECS_SERVICE_NAME: 'jfc-ecommerce-dev-ecs-service-api-core'
   ECS_CONTAINER_NAME: 'app'
