@@ -87,7 +87,9 @@ const pool = mysql.createPool({
   password: process.env.DB_PASS || 'secret',
   database: process.env.DB_NAME || 'tienda',
   waitForConnections: true,
-  connectionLimit: 5,
+  connectionLimit: 20,
+  queueLimit: 0,
+  connectTimeout: 10000,
 });
 
 // ---------- UTILS ----------
@@ -250,6 +252,8 @@ app.post('/api/upload/presigned-url', requireAdmin, async (req, res) => {
 // ---------- ORDERS (ÚNICO HANDLER) ----------
 app.post('/api/orders', async (req, res) => {
   const { customer, cart } = req.body || {};
+  const startTime = Date.now();
+  
   try {
     // Validación básica
     if (!customer?.name || !validEmail(customer?.email)) {
@@ -314,22 +318,27 @@ app.post('/api/orders', async (req, res) => {
 
       await conn.commit();
 
-      // Enviar solicitud de pago a SQS
-      try {
-        await sendPaymentRequest({
-          orderId: order_id,
-          customerId: customer_id,
-          customerEmail: customer.email,
-          total,
-          items
-        });
-      } catch (sqsError) {
-        console.error('[ORDEN] Error enviando a SQS (la orden fue creada):', sqsError);
-        // No fallamos la orden si SQS falla - el pago puede procesarse manualmente
-      }
+      const dbTime = Date.now() - startTime;
+      console.log(`[ORDEN] DB transaction completed in ${dbTime}ms`);
 
+      // Enviar solicitud de pago a SQS (no bloqueante)
+      setImmediate(async () => {
+        try {
+          await sendPaymentRequest({
+            orderId: order_id,
+            customerId: customer_id,
+            customerEmail: customer.email,
+            total,
+            items
+          });
+        } catch (sqsError) {
+          console.error('[ORDEN] Error enviando a SQS (la orden fue creada):', sqsError);
+        }
+      });
+
+      const totalTime = Date.now() - startTime;
       console.log(
-        `[ORDEN] #${order_id} total ${fmtCOP(total)} para ${customer.name} <${customer.email}>`
+        `[ORDEN] #${order_id} total ${fmtCOP(total)} para ${customer.name} <${customer.email}> (${totalTime}ms)`
       );
       res.json({ ok: true, orderId: order_id, total, status: 'PENDING_PAYMENT' });
     } catch (e) {
@@ -339,7 +348,8 @@ app.post('/api/orders', async (req, res) => {
       conn.release();
     }
   } catch (e) {
-    console.error('POST /api/orders', e);
+    const totalTime = Date.now() - startTime;
+    console.error(`POST /api/orders failed after ${totalTime}ms:`, e);
     res.status(500).json({ ok: false, error: e.message || 'Error al crear la orden' });
   }
 });
